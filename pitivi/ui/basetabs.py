@@ -21,6 +21,7 @@
 
 import gtk
 from pitivi.ui.common import SPACING
+from pitivi.settings import GlobalSettings
 
 class BaseTabs(gtk.Notebook):
 
@@ -35,14 +36,42 @@ class BaseTabs(gtk.Notebook):
 
         self._hide_hpaned = hide_hpaned
         self.app = app
-        settings = self.get_settings()
-        settings.props.gtk_dnd_drag_threshold = 1
+        self.settings = app.settings  # To save/restore states of detached tabs
+
+        notebook_widget_settings = self.get_settings()
+        notebook_widget_settings.props.gtk_dnd_drag_threshold = 1
 
     def append_page(self, child, label):
+        child_name = label.get_text()
+        #child_name = child.__name__ # Won't work, because it's private...
+        # Create default settings for each detachable widget
+        GlobalSettings.addConfigSection("tabs - " + child_name)
+        GlobalSettings.addConfigOption(child_name + "Docked",
+            section="tabs - " + child_name,
+            key="docked",
+            default=True)
+        GlobalSettings.addConfigOption(child_name + "Width",
+            section="tabs - " + child_name,
+            key="width",
+            default=320)
+        GlobalSettings.addConfigOption(child_name + "Height",
+            section="tabs - " + child_name,
+            key="height",
+            default=240)
+        GlobalSettings.addConfigOption(child_name + "X",
+            section="tabs - " + child_name,
+            key="x-pos",
+            default=0)
+        GlobalSettings.addConfigOption(child_name + "Y",
+            section="tabs - " + child_name,
+            key="y-pos",
+            default=0)
+
         gtk.Notebook.append_page(self, child, label)
         self._set_child_properties(child, label)
         child.show()
         label.show()
+        # TODO: if the child_name + "Docked" setting is False, emit create-window
 
     def _set_child_properties(self, child, label):
         self.child_set_property(child, "detachable", True)
@@ -63,12 +92,30 @@ class BaseTabs(gtk.Notebook):
         if self._hide_hpaned:
             self._showSecondHpanedInMainWindow()
 
+    def _detachedComponentWindowConfiguredCb(self, window, event):
+        """
+        When the user configures the detached window
+        (changes its size, position, etc.), save the settings.
+        """
+        pass
+        # FIXME: normally this is how it would be done:
+#        self.settings.viewerWidth = event.width
+#        self.settings.viewerHeight = event.height
+#        self.settings.viewerX = event.x
+#        self.settings.viewerY = event.y
+
+        # The problem is that we can't hardcode the setting name, 
+        # because we have multiple widgets!
+
     def _createWindowCb(self, from_notebook, child, x, y):
         original_position = self.child_get_property(child, "position")
         label = self.child_get_property(child, "tab-label")
         window = gtk.Window()
         window.set_title(label)
+        # TODO: restore the saved size and other settings
         window.set_default_size(600, 400)
+        window.connect("configure", self._detachedComponentWindowConfiguredCb,
+                child, original_position, label)
         window.connect("destroy", self._detachedComponentWindowDestroyCb,
                 child, original_position, label)
         notebook = gtk.Notebook()
