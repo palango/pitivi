@@ -23,21 +23,20 @@ import gtk
 from pitivi.ui.common import SPACING
 
 class BaseTabs(gtk.Notebook):
+
     def __init__(self, app, hide_hpaned=False):
-        """ initialize """
+        """
+        Initialize the notebook widget
+        """
         gtk.Notebook.__init__(self)
         self.set_border_width(SPACING)
-
+        self.set_tab_pos(gtk.POS_TOP)
         self.connect("create-window", self._createWindowCb)
+
         self._hide_hpaned = hide_hpaned
         self.app = app
-        self._createUi()
-
-    def _createUi(self):
-        """ set up the gui """
         settings = self.get_settings()
         settings.props.gtk_dnd_drag_threshold = 1
-        self.set_tab_pos(gtk.POS_TOP)
 
     def append_page(self, child, label):
         gtk.Notebook.append_page(self, child, label)
