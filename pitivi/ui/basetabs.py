@@ -43,8 +43,26 @@ class BaseTabs(gtk.Notebook):
 
     def append_page(self, child, label):
         child_name = label.get_text()
-        #child_name = child.__name__ # Won't work, because it's private...
-        # Create default settings for each detachable widget
+        gtk.Notebook.append_page(self, child, label)
+        self._set_child_properties(child, label)
+        child.show()
+        label.show()
+        self._createDefaultConfig(child_name)
+
+        if getattr(self.settings, child_name + "Docked") == False:
+            emit("create-window")
+
+    def _set_child_properties(self, child, label):
+        self.child_set_property(child, "detachable", True)
+        self.child_set_property(child, "tab-expand", False)
+        self.child_set_property(child, "tab-fill", True)
+        label.props.xalign = 0.0
+
+    def _createDefaultConfig(self, child_name):
+        """
+        If they do not exist already, create default settings
+        to save the state of a detachable widget.
+        """
         GlobalSettings.addConfigSection("tabs - " + child_name)
         GlobalSettings.addConfigOption(child_name + "Docked",
             section="tabs - " + child_name,
@@ -67,23 +85,12 @@ class BaseTabs(gtk.Notebook):
             key="y-pos",
             default=0)
 
-        gtk.Notebook.append_page(self, child, label)
-        self._set_child_properties(child, label)
-        child.show()
-        label.show()
-        # TODO: if the child_name + "Docked" setting is False, emit create-window
-
-    def _set_child_properties(self, child, label):
-        self.child_set_property(child, "detachable", True)
-        self.child_set_property(child, "tab-expand", False)
-        self.child_set_property(child, "tab-fill", True)
-        label.props.xalign = 0.0
-
     def _detachedComponentWindowDestroyCb(self, window, child,
             original_position, label):
         notebook = window.child
         position = notebook.child_get_property(child, "position")
         notebook.remove_page(position)
+        setattr(self.settings, label + "Docked", True)
         label = gtk.Label(label)
         self.insert_page(child, label, original_position)
         self._set_child_properties(child, label)
@@ -109,8 +116,19 @@ class BaseTabs(gtk.Notebook):
         label = self.child_get_property(child, "tab-label")
         window = gtk.Window()
         window.set_title(label)
-        # TODO: restore the saved size and other settings
-        window.set_default_size(600, 400)
+        
+        # Get the previous window state settings
+        width = getattr(self.settings, label + "Width")
+        height = getattr(self.settings, label + "Height")
+        x = getattr(self.settings, label + "X")
+        y = getattr(self.settings, label + "Y")
+        
+        # Save the fact that the window is now detached
+        setattr(self.settings, label + "Docked", False)
+        
+        print "Attributes:", width, height, x, y
+
+        window.set_default_size(width, height)
         window.connect("configure-event", self._detachedComponentWindowConfiguredCb, label)
         window.connect("destroy", self._detachedComponentWindowDestroyCb,
                 child, original_position, label)
@@ -119,8 +137,7 @@ class BaseTabs(gtk.Notebook):
         window.add(notebook)
 
         window.show_all()
-        # set_uposition is deprecated but what should I use instead?
-        window.set_uposition(x, y)
+        window.move(x, y)
 
         if self._hide_hpaned:
             self._hideSecondHpanedInMainWindow()
