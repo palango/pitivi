@@ -92,20 +92,17 @@ class BaseTabs(gtk.Notebook):
         if self._hide_hpaned:
             self._showSecondHpanedInMainWindow()
 
-    def _detachedComponentWindowConfiguredCb(self, window, event):
+    def _detachedComponentWindowConfiguredCb(self, window, event, child_label):
         """
         When the user configures the detached window
         (changes its size, position, etc.), save the settings.
         """
-        pass
-        # FIXME: normally this is how it would be done:
-#        self.settings.viewerWidth = event.width
-#        self.settings.viewerHeight = event.height
-#        self.settings.viewerX = event.x
-#        self.settings.viewerY = event.y
-
-        # The problem is that we can't hardcode the setting name, 
-        # because we have multiple widgets!
+        # Use a different variable name depending on the widget
+        config_key = child_label
+        setattr(self.settings, config_key + "Width", event.width)
+        setattr(self.settings, config_key + "Height", event.height)
+        setattr(self.settings, config_key + "X", event.x)
+        setattr(self.settings, config_key + "Y", event.y)
 
     def _createWindowCb(self, from_notebook, child, x, y):
         original_position = self.child_get_property(child, "position")
@@ -114,8 +111,7 @@ class BaseTabs(gtk.Notebook):
         window.set_title(label)
         # TODO: restore the saved size and other settings
         window.set_default_size(600, 400)
-        window.connect("configure", self._detachedComponentWindowConfiguredCb,
-                child, original_position, label)
+        window.connect("configure-event", self._detachedComponentWindowConfiguredCb, label)
         window.connect("destroy", self._detachedComponentWindowDestroyCb,
                 child, original_position, label)
         notebook = gtk.Notebook()
