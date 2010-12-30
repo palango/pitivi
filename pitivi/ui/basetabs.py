@@ -86,12 +86,12 @@ class BaseTabs(gtk.Notebook):
             default=0)
 
     def _detachedComponentWindowDestroyCb(self, window, child,
-            original_position, label):
+            original_position, child_name):
         notebook = window.child
         position = notebook.child_get_property(child, "position")
         notebook.remove_page(position)
-        setattr(self.settings, label + "Docked", True)
-        label = gtk.Label(label)
+        setattr(self.settings, child_name + "Docked", True)
+        label = gtk.Label(child_name)
         self.insert_page(child, label, original_position)
         self._set_child_properties(child, label)
         self.child_set_property(child, "detachable", True)
@@ -113,25 +113,25 @@ class BaseTabs(gtk.Notebook):
 
     def _createWindowCb(self, from_notebook, child, x, y):
         original_position = self.child_get_property(child, "position")
-        label = self.child_get_property(child, "tab-label")
+        child_name = self.child_get_property(child, "tab-label")
         window = gtk.Window()
-        window.set_title(label)
+        window.set_title(child_name)
         
         # Get the previous window state settings
-        width = getattr(self.settings, label + "Width")
-        height = getattr(self.settings, label + "Height")
-        x = getattr(self.settings, label + "X")
-        y = getattr(self.settings, label + "Y")
+        width = getattr(self.settings, child_name + "Width")
+        height = getattr(self.settings, child_name + "Height")
+        x = getattr(self.settings, child_name + "X")
+        y = getattr(self.settings, child_name + "Y")
         
         # Save the fact that the window is now detached
-        setattr(self.settings, label + "Docked", False)
+        setattr(self.settings, child_name + "Docked", False)
         
         print "Attributes:", width, height, x, y
 
         window.set_default_size(width, height)
-        window.connect("configure-event", self._detachedComponentWindowConfiguredCb, label)
+        window.connect("configure-event", self._detachedComponentWindowConfiguredCb, child_name)
         window.connect("destroy", self._detachedComponentWindowDestroyCb,
-                child, original_position, label)
+                child, original_position, child_name)
         notebook = gtk.Notebook()
         notebook.props.show_tabs = False
         window.add(notebook)
