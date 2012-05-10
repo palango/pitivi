@@ -222,53 +222,6 @@ class TerminalController:
         else:
             return getattr(self, s[2:-1])
 
-#######################################################################
-# Example use case: progress bar
-#######################################################################
-
-
-class ProgressBar:
-    """
-    A 3-line progress bar, which looks like::
-
-                                Header
-        20% [===========----------------------------------]
-                           progress message
-
-    The progress bar is colored, if the terminal supports color
-    output; and adjusts to the width of the terminal.
-    """
-    BAR = '%3d%% ${GREEN}[${BOLD}%s%s${NORMAL}${GREEN}]${NORMAL}\n'
-    HEADER = '${BOLD}${CYAN}%s${NORMAL}\n\n'
-
-    def __init__(self, term, header):
-        self.term = term
-        if not (self.term.CLEAR_EOL and self.term.UP and self.term.BOL):
-            raise ValueError("Terminal isn't capable enough -- you "
-                             "should use a simpler progress dispaly.")
-        self.width = self.term.COLS or 75
-        self.bar = term.render(self.BAR)
-        self.header = self.term.render(self.HEADER % header.center(self.width))
-        self.cleared = 1  # : true if we haven't drawn the bar yet.
-        self.update(0, '')
-
-    def update(self, percent, message):
-        if self.cleared:
-            sys.stdout.write(self.header)
-            self.cleared = 0
-        n = int((self.width - 10) * percent)
-        sys.stdout.write(
-            self.term.BOL + self.term.UP + self.term.CLEAR_EOL +
-            (self.bar % (100 * percent, '=' * n, '-' * (self.width - 10 - n))) +
-            self.term.CLEAR_EOL + message.center(self.width))
-
-    def clear(self):
-        if not self.cleared:
-            sys.stdout.write(self.term.BOL + self.term.CLEAR_EOL +
-                             self.term.UP + self.term.CLEAR_EOL +
-                             self.term.UP + self.term.CLEAR_EOL)
-            self.cleared = 1
-
 
 def getLevelName(level):
     """
@@ -1030,24 +983,6 @@ class BaseLoggable(object):
     def handleException(self, exc):
         self.warning(getExceptionMessage(exc))
 
-# Twisted helper stuff
-
-# private stuff
-_initializedTwisted = False
-
-# make a singleton
-__theTwistedLogObserver = None
-
-
-def _getTheTwistedLogObserver():
-    # used internally and in test
-    global __theTwistedLogObserver
-
-    if not __theTwistedLogObserver:
-        __theTwistedLogObserver = TwistedLogObserver()
-
-    return __theTwistedLogObserver
-
 
 # public helper methods
 
@@ -1079,97 +1014,6 @@ def warningFailure(failure, swallow=True):
     warning('', getFailureMessage(failure))
     if not swallow:
         return failure
-
-
-def logTwisted():
-    """
-    Integrate twisted's logger with our logger.
-
-    This is done in a separate method because calling this imports and sets
-    up a reactor.  Since we want basic logging working before choosing a
-    reactor, we need to separate these.
-    """
-    global _initializedTwisted
-
-    if _initializedTwisted:
-        return
-
-    debug('log', 'Integrating twisted logger')
-
-    # integrate twisted's logging with us
-    from twisted.python import log as tlog
-
-    # this call imports the reactor
-    # that is why we do this in a separate method
-    from twisted.spread import pb
-
-    # we don't want logs for pb.Error types since they
-    # are specifically raised to be handled on the other side
-    observer = _getTheTwistedLogObserver()
-    observer.ignoreErrors([pb.Error, ])
-    tlog.startLoggingWithObserver(observer.emit, False)
-
-    _initializedTwisted = True
-
-
-# we need an object as the observer because startLoggingWithObserver
-# expects a bound method
-
-
-class TwistedLogObserver(BaseLoggable):
-    """
-    Twisted log observer that integrates with our logging.
-    """
-    logCategory = "logobserver"
-
-    def __init__(self):
-        self._ignoreErrors = []  # Failure types
-
-    def emit(self, eventDict):
-        method = log  # by default, lowest level
-        edm = eventDict['message']
-        if not edm:
-            if eventDict['isError'] and 'failure' in eventDict:
-                f = eventDict['failure']
-                for failureType in self._ignoreErrors:
-                    r = f.check(failureType)
-                    if r:
-                        self.debug("Failure of type %r, ignoring" %
-                                   failureType)
-                        return
-
-                self.log("Failure %r" % f)
-
-                method = debug  # tracebacks from errors at debug level
-                msg = "A twisted traceback occurred."
-                if getCategoryLevel("twisted") < WARN:
-                    msg += "  Run with debug level >= 2 to see the traceback."
-                # and an additional warning
-                warning('twisted', msg)
-                text = f.getTraceback()
-                safeprintf(sys.stderr, "\nTwisted traceback:\n")
-                safeprintf(sys.stderr, text + '\n')
-            elif 'format' in eventDict:
-                text = eventDict['format'] % eventDict
-            else:
-                # we don't know how to log this
-                return
-        else:
-            text = ' '.join(map(str, edm))
-
-        fmtDict = {'system': eventDict['system'],
-                   'text': text.replace("\n", "\n\t")}
-        msgStr = " [%(system)s] %(text)s\n" % fmtDict
-        # because msgstr can contain %, as in a backtrace, make sure we
-        # don't try to splice it
-        method('twisted', msgStr)
-
-    def ignoreErrors(self, *types):
-        for failureType in types:
-            self._ignoreErrors.append(failureType)
-
-    def clearIgnores(self):
-        self._ignoreErrors = []
 
 
 class Loggable(BaseLoggable):
