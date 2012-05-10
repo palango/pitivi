@@ -29,14 +29,13 @@ import gst
 import gtk
 import os
 import cairo
+import logging
 
 from itertools import izip
 from urllib import unquote
 from gettext import ngettext, gettext as _
 from xml.sax.saxutils import escape
 from decimal import Decimal
-
-from pitivi.utils.loggable import doLog, ERROR
 
 # ---------------------- Constants -------------------------------------------#
 
@@ -173,7 +172,7 @@ def beautify_info(info):
             beautifull = beautify_stream(stream)
             nice_streams_txts.append(beautifull)
         except NotImplementedError:
-            doLog(ERROR, "Beautify", "None", "Cannot beautify %s", stream)
+            logging.error("Beautify None Cannot beautify %s" % stream)
 
     return ("<b>" + info_name(info) + "</b>\n" +
         "\n".join((nice for nice in nice_streams_txts)))

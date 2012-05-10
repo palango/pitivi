@@ -31,6 +31,7 @@ import sys
 import urllib
 import ges
 import gio
+import logging
 
 from gettext import gettext as _
 from optparse import OptionParser
@@ -50,7 +51,7 @@ from pitivi.dialogs.startupwizard import StartUpWizard
 
 from pitivi.utils.signal import Signallable
 from pitivi.utils.system import getSystem
-from pitivi.utils.loggable import Loggable
+from pitivi.utils.loggable import Loggable, ColorizingStreamHandler
 import pitivi.utils.loggable as log
 #FIXME GES port disabled it
 #from pitivi.undo.timeline import TimelineLogObserver
@@ -106,11 +107,29 @@ class Pitivi(Loggable, Signallable):
         """
         Loggable.__init__(self)
 
-        # init logging as early as possible so we can log startup code
-        enable_color = os.environ.get('PITIVI_DEBUG_NO_COLOR', '0') in ('', '0')
-        log.init('PITIVI_DEBUG', enable_color)
+        root = logging.getLogger()
+        map = {"CRITICAL": logging.CRITICAL,
+               "ERROR": logging.ERROR,
+               "WARNING": logging.WARNING,
+               "INFO": logging.INFO,
+               "DEBUG": logging.DEBUG}
 
-        self.info('starting up')
+        root.setLevel(map[os.environ.get("PITIVI_DEBUG")])
+
+        # init logging as early as possible so we can log startup code
+        if os.environ.get('PITIVI_DEBUG_NO_COLOR', '0') in ('', '0'):
+            handler = ColorizingStreamHandler()
+            formatter = logging.Formatter('[%(levelname)-8s %(asctime)s.%(msecs)d]!! %(message)s',
+                                          datefmt='%H:%M:%S')
+        else:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('[%(levelname)-8s %(asctime)s.%(msecs)d] %(message)s',
+                                          datefmt='%H:%M:%S',)
+
+        handler.setFormatter(formatter)
+        root.addHandler(handler)
+
+        self.info('Starting PiTiVi %s' % pitivi_version)
 
         # store ourself in the instance global
         if instance.PiTiVi:
