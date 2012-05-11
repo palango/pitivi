@@ -1,3 +1,7 @@
+import traceback
+import sys
+
+
 class Loggable(object):
 
     def error(self, *args):
@@ -14,6 +18,28 @@ class Loggable(object):
 
     def log(self, *args):
         logging.info(*args)
+
+    def handleException(self, e):
+        logging.error(self.getExceptionMessage(e))
+
+    def getExceptionMessage(exception, filename=None):
+        """
+        Return a short message based on an exception, useful for debugging.
+        Tries to find where the exception was triggered.
+        """
+        stack = traceback.extract_tb(sys.exc_info()[2])
+        if filename:
+            stack = [f for f in stack if f[0].find(filename) > -1]
+        #import code; code.interact(local=locals())
+        (filename, line, func, text) = stack[-1]
+        exc = exception.__class__.__name__
+        msg = ""
+        # a shortcut to extract a useful message out of most exceptions
+        # for now
+        if str(exception):
+            msg = ": %s" % str(exception)
+        return "exception %(exc)s at %(filename)s:%(line)s: %(func)s()%(msg)s" \
+            % locals()
 
 
 #
