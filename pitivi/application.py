@@ -114,16 +114,20 @@ class Pitivi(Loggable, Signallable):
                "INFO": logging.INFO,
                "DEBUG": logging.DEBUG}
 
-        root.setLevel(map[os.environ.get("PITIVI_DEBUG")])
+        try:
+            root.setLevel(map[os.environ.get("PITIVI_DEBUG")])
+        except KeyError:
+            # log info as default
+            root.setLevel(logging.INFO)
 
         # init logging as early as possible so we can log startup code
         if os.environ.get('PITIVI_DEBUG_NO_COLOR', '0') in ('', '0'):
             handler = ColorizingStreamHandler()
-            formatter = logging.Formatter('[%(levelname)-8s %(asctime)s.%(msecs)d]!! %(message)s',
+            formatter = logging.Formatter('[%(levelname)-8s %(asctime)s.%(msecs)-3d]!! %(message)s',
                                           datefmt='%H:%M:%S')
         else:
             handler = logging.StreamHandler()
-            formatter = logging.Formatter('[%(levelname)-8s %(asctime)s.%(msecs)d] %(message)s',
+            formatter = logging.Formatter('[%(levelname)-8s %(asctime)s.%(msecs)-3d] %(message)s',
                                           datefmt='%H:%M:%S',)
 
         handler.setFormatter(formatter)

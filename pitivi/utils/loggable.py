@@ -13,7 +13,7 @@ class Loggable(object):
         logging.debug(*args)
 
     def log(self, *args):
-        logging.warning(*args)
+        logging.info(*args)
 
 
 #
@@ -145,6 +145,7 @@ class ColorizingStreamHandler(logging.StreamHandler):
         message = logging.StreamHandler.format(self, record)
         if self.is_tty:
             # Don't colorize all output
+            # use !! in the format text the stop coloring
             parts = message.split('!!', 1)
             parts[0] = self.colorize(parts[0], record)
             message = ''.join(parts)
